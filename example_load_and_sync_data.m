@@ -2,21 +2,23 @@ close all force;
 clear; 
 clc;
 
+AUTO_SAVE_FIGURES = true; 
 SUBJ = "Rawan";
 YYYY = 2022;
-MM = 9;
-DD = 19;
-BLOCK = 2;
+MM = 10;
+DD = 7;
+BLOCK = 0;
 ELIM = [20 80];
+dt = datetime('now', 'TimeZone','local', 'Format', 'yyyy-MM-dd_hh-mm-ss');
 
 x = io.load_tmsi(SUBJ, YYYY, MM, DD, ["A", "B"], BLOCK, '.poly5');
 
 % Get the onset difference (seconds)
-dt = seconds(datetime(x(2).date) - datetime(x(1).date));
+tdiff = seconds(datetime(x(2).date) - datetime(x(1).date));
 fs = x(1).sample_rate;
 
 % How many samples ahead of "A" (x(1)) is "B" (x(2))?
-n_sync_samples = round(fs*dt);
+n_sync_samples = round(fs*tdiff);
 
 % Remove the first `n_sync_samples` from "B".
 iStart = n_sync_samples+1;
@@ -47,7 +49,10 @@ histogram(ax, rB);
 xlabel(ax, 'RMS (mV)', 'FontName','Tahoma');
 xlim(ax,[0 100]);
 xline(ax, ELIM, 'r:', 'Label', 'Exclusions');
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/RMS");
+
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt) ,"RMS"));
+end
 
 %%
 all_ch = 1:64;
@@ -80,7 +85,9 @@ Y = [zA; zB];
 fig = figure('Name', 'Pareto Plot', 'Color', 'w');
 ax = axes(fig, 'NextPlot', 'add');
 pareto(ax, explained);
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/Pareto");
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "Pareto"));
+end
 
 %% The first PC is just noise.
 fig = figure('Name', 'PC-1 Noise', 'Color', 'w');
@@ -88,7 +95,7 @@ spectrogram(score(:,1), 512, 256, 0:500, 4000, 'yaxis');
 title("PC-1 is mains noise");
 xlabel("Time");
 ylabel("Amplitude (\muV)");
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/PC1-Noise");
+default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "PC1-Noise"));
 
 %% Look next at PC-2 thru PC-5
 fig = figure('Name', 'PC-2 thru PC-5', 'Color', 'w', 'Position', [4008        -996        1067         892]);
@@ -108,7 +115,9 @@ for ii = 2:5
         title(ax, sprintf('PC-%d', ii), 'FontName', 'Tahoma', 'Color', 'k');
     end
 end
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/PC2-5");
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "PC2-5"));
+end
 
 %% Look next at PC-6 thru PC-11
 fig = figure('Name', 'PC-6 thru PC-11', 'Color', 'w', 'Position', [4008        -996        1067         892]);
@@ -128,8 +137,9 @@ for ii = 6:11
         title(ax, sprintf('PC-%d', ii), 'FontName', 'Tahoma', 'Color', 'k');
     end
 end
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/PC6-11");
-
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "PC6-11"));
+end
 %% Use thresholding on Y
 THRESH_RMS = 1.5;
 N_SAMPLES_PP = 1000;
@@ -160,8 +170,9 @@ title(ax, 'MUAPs Rates', 'FontName', 'Tahoma', 'Color', 'k');
 subtitle(ax, sprintf('Piecewise Cubic Spline (Smoothing p = %3.2f)', SMOOTHING), 'FontName', 'Tahoma', 'Color', [0.5 0.5 0.5]); 
 ylabel(ax, 'MUAPs/sec', 'FontName','Tahoma','Color','k');
 xlabel(ax, 'Time (s)', 'FontName','Tahoma','Color','k');
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/MUAP-Rates");
-
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "MUAP-Rates"));
+end
 %% Now, decompose those rates
 [coeff,score,latent,tsquared,explained,mu] = pca(Yp);
 fig = figure('Name', 'Rate PCs Pareto', 'Color', 'w', ...
@@ -199,8 +210,9 @@ end
 title(ax, 'Motor Decomp "State"', 'FontName', 'Tahoma', 'Color', 'k');
 ylim(ax, [0 7]);
 xlabel(ax, 'Time (s)', 'FontName', 'Tahoma', 'Color', 'k');
-
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/MUAP-Rates-Pareto-State");
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "MUAP-Rates-Pareto-State"));
+end
 
 %% Spatial distribution of PCs on electrodes
 coeff_big = nan(128,6);
@@ -226,6 +238,7 @@ for ii = 1:6
 end
 title(L, 'Rawan MUAPs Rate Coefficients', 'FontName', 'Tahoma', 'Color', 'k');
 subtitle(L, sprintf('(%5.1f%% of rate estimates explained)', cs(6)), 'FontName', 'Tahoma', 'Color', [0.5 0.5 0.5]);
-default.savefig(fig, "R:/NMLShare/generated_data/human/TC/MUAPs/MUAP-Rates-Components");
-
+if AUTO_SAVE_FIGURES
+    default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", string(dt), "MUAP-Rates-Components"));
+end
 %%
