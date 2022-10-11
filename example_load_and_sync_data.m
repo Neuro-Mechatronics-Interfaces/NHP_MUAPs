@@ -54,13 +54,15 @@ for iB = 1:numel(BLOCK)
     xline(ax, ELIM, 'r:', 'Label', 'Exclusions');
     
     if AUTO_SAVE_FIGURES
-        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", sprintf("%s - %s", block, string(dt)) ,"RMS"));
+        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", block, string(dt), "RMS"));
     end
     
     %%
     all_ch = 1:64;
     not_in_A = all_ch((rA < ELIM(1)) | (rA > ELIM(2)));
     not_in_B = all_ch((rB < ELIM(1)) | (rB > ELIM(2)));
+%     not_in_A = [];
+%     not_in_B = [];
     xA(not_in_A, :) = [];
     xB(not_in_B, :) = [];
     in_A = setdiff(all_ch, not_in_A);
@@ -93,50 +95,64 @@ for iB = 1:numel(BLOCK)
     % All I am doing is fitting a piecewise cubic polynomial to the
     % instantaneous "lambda" (intensity) values (which are equivalent to
     % 1/samples between each "spike"):
+    ts = cell(size(Y,1),1);
     for ii = 1:size(Y, 1)
         s = abs(Y(ii,:)) > (rms(abs(Y(ii,:)), 2)*THRESH_RMS);
-        ts = [1, find(s)./fs, size(Y,2)]; % MUAP times in seconds
-        dts = [0, 1/ts(2), 1./diff(ts(2:(end-1))), 0];
+        ts{ii} = [1./fs, find(s)./fs, size(Y,2)./fs]; % MUAP times in seconds
+        dts = [0, 1/ts{ii}(2), 1./diff(ts{ii}(2:(end-1))), 0];
         i_remove = dts >= MAX_MUAPS_PER_SEC; % This is to make sure that I didn't get spikes that were too close together
-        ts(i_remove) = [];
+        ts{ii}(i_remove) = [];
         dts(i_remove) = [];
-        pp{ii} = csaps(ts, dts, SMOOTHING); % Setting SMOOTHING lower makes the rate traces smoother.
+        pp{ii} = csaps(ts{ii}, dts, SMOOTHING); % Setting SMOOTHING lower makes the rate traces smoother.
         Yp(:, ii) = max(ppval(pp{ii}, tp), 0);
     end
-    fig = figure('Name', 'MUAPs Rate', 'Color', 'w', ...
-        'Position', [4014        -842         868         720]);
-    L = tiledlayout(fig, 2, 1);
-    ax = nexttile(L, 2, [1 1]);
-    set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k');
+
     nbuf = round(0.05 * N_SAMPLES_PP);
     vec_keep = nbuf:(N_SAMPLES_PP - nbuf + 1);
+    
     tp = tp(vec_keep);
     Yp = Yp(vec_keep,:);
-    
+
     iExc = isoutlier(rms(Yp,1));
     in_both = [in_A, in_B];
     in_both(iExc) = [];
-    Yp = Yp(:, in_both);
-    
-    plot(ax, tp, Yp./max(Yp, [], 1) + (1:size(Yp,2)));
-    
-    title(ax, 'MUAPs/sec (1:250)', 'FontName', 'Tahoma', 'Color', 'k');
-    subtitle(ax, sprintf('Piecewise Cubic Spline (Smoothing p = %3.2f)', SMOOTHING), 'FontName', 'Tahoma', 'Color', [0.5 0.5 0.5]); 
+
+    Yp = Yp(:, ~iExc);
+    ts = ts(~iExc);  
+
+    fig = figure('Name', 'MUAPs Rate', 'Color', 'w', ...
+        'Position', [4014        -842         868         720]);
+    L = tiledlayout(fig, 3, 1);
+    ax = nexttile(L, 2, [1 1]);
+    set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k', 'XLim', [t(1), t(end)]);
+    for ii = 1:numel(ts)
+        tmpx = [ts{ii}; ts{ii}; nan(1, numel(ts{ii}))];
+        tmpy = ones(3, numel(ts{ii})) .* [in_both(ii)-0.33; in_both(ii)+0.33; nan];
+        line(ax, tmpx(:), tmpy(:), 'LineWidth', 1.25, 'Color', ax.ColorOrder(rem(ii-1, size(ax.ColorOrder,1))+1,:));
+    end
+    title(ax, 'MUAPs Raster', 'FontName', 'Tahoma', 'Color', 'k');
     ylabel(ax, 'Channel', 'FontName','Tahoma','Color','k');
     xlabel(ax, 'Time (s)', 'FontName','Tahoma','Color','k');
-    
+
+    ax = nexttile(L, 3, [1 1]);
+    set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k', 'XLim', [t(1), t(end)]);
+    plot(ax, tp, Yp);
+    title(ax, 'Cubic Spline Rates (MUAPs)', 'FontName', 'Tahoma', 'Color', 'k');
+    subtitle(ax, sprintf('Piecewise Cubic Spline (Smoothing p = %3.2f)', SMOOTHING), 'FontName', 'Tahoma', 'Color', [0.5 0.5 0.5]); 
+    ylabel(ax, 'Rate (MUAPs/sec)', 'FontName','Tahoma','Color','k');
+    xlabel(ax, 'Time (s)', 'FontName','Tahoma','Color','k');
+
     ax = nexttile(L, 1, [1 1]);
-    set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k');
-    E = Y(in_both, vec_keep);
-    E = E./max(abs(E), [], 2) + (1:size(E,1))';
+    set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k', 'XLim', [t(1), t(end)]);
+    E = Y(~iExc, vec_keep);
+    E = E./max(abs(E), [], 2) + in_both';
     plot(ax, tp, E);
     title(ax, 'HD-EMG', 'FontName', 'Tahoma', 'Color', 'k');
     ylabel(ax, 'Channel', 'FontName','Tahoma','Color','k');
     xlabel(ax, 'Time (s)', 'FontName','Tahoma','Color','k');
     
     if AUTO_SAVE_FIGURES
-        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", ...
-            sprintf("%s - %s", block, string(dt)), ...
+        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", block, string(dt), ...
             sprintf("MUAP-Rates_N-%d_THRESH-%d_SMOOTH-%d_MAX-MUAPS-%d", N_SAMPLES_PP, round(THRESH_RMS*10), round(SMOOTHING*10), round(MAX_MUAPS_PER_SEC))));
     end
     %% Now, decompose those rates
@@ -178,7 +194,7 @@ for iB = 1:numel(BLOCK)
     ylim(ax, [0 7]);
     xlabel(ax, 'Time (s)', 'FontName', 'Tahoma', 'Color', 'k');
     if AUTO_SAVE_FIGURES
-        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", sprintf("%s - %s", block, string(dt)), "MUAP-Rates-Pareto-State"));
+        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", block, string(dt),  "MUAP-Rates-Pareto-State"));
     end
     
     %% Spatial distribution of PCs on electrodes
@@ -207,6 +223,6 @@ for iB = 1:numel(BLOCK)
     title(L, 'Rawan MUAPs Rate Coefficients', 'FontName', 'Tahoma', 'Color', 'k');
     subtitle(L, sprintf('(%5.1f%% of rate estimates explained)', cs(6)), 'FontName', 'Tahoma', 'Color', [0.5 0.5 0.5]);
     if AUTO_SAVE_FIGURES
-        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", sprintf("%s - %s", block, string(dt)), "MUAP-Rates-Components"));
+        default.savefig(fig, fullfile("R:/NMLShare/generated_data/human/TC/MUAPs", block, string(dt), "MUAP-Rates-Components"));
     end
 end
