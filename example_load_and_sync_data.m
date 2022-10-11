@@ -156,7 +156,7 @@ for iB = 1:numel(BLOCK)
     set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k', 'XLim', [t(1), t(end)]);
     E = Y(~iExc, :);
     E = E./max(abs(E), [], 2) + in_both';
-    plot(ax, tp, E);
+    plot(ax, t, E);
     title(ax, strrep(block, '_', '\_'), 'FontName', 'Tahoma', 'Color', 'k');
     subtitle(ax, 'HD-EMG', 'FontName', 'Tahoma', 'Color', [0.6 0.6 0.6]);
     ylabel(ax, 'Channel', 'FontName','Tahoma','Color','k');
