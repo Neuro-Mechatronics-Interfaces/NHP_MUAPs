@@ -154,7 +154,7 @@ for iB = 1:numel(BLOCK)
 
     ax = nexttile(L, 1, [1 1]);
     set(ax, 'NextPlot', 'add', 'XColor', 'k', 'YColor', 'k', 'XLim', [t(1), t(end)]);
-    E = Y(~iExc, vec_keep);
+    E = Y(~iExc, :);
     E = E./max(abs(E), [], 2) + in_both';
     plot(ax, tp, E);
     title(ax, strrep(block, '_', '\_'), 'FontName', 'Tahoma', 'Color', 'k');
