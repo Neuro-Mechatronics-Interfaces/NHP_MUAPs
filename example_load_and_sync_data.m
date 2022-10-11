@@ -59,14 +59,15 @@ for iB = 1:numel(BLOCK)
     
     %%
     all_ch = 1:64;
-    not_in_A = all_ch((rA < ELIM(1)) | (rA > ELIM(2)));
-    not_in_B = all_ch((rB < ELIM(1)) | (rB > ELIM(2)));
-%     not_in_A = [];
-%     not_in_B = [];
+%     not_in_A = all_ch((rA < ELIM(1)) | (rA > ELIM(2)));
+%     not_in_B = all_ch((rB < ELIM(1)) | (rB > ELIM(2)));
+    not_in_A = [];
+    not_in_B = [];
     xA(not_in_A, :) = [];
     xB(not_in_B, :) = [];
     in_A = setdiff(all_ch, not_in_A);
     in_B = setdiff(all_ch, not_in_B) + 64;
+    n_samples = size(xA, 2);
     
     %%
     xA = xA - mean(xA,2);
@@ -77,10 +78,19 @@ for iB = 1:numel(BLOCK)
     xA = filtfilt(b,a,xA')';
     
     xB = xB - mean(xB,1);
+    xB = reshape(xB, 8, 8, n_samples);
+    xB = reshape([nan(1,8,n_samples); diff(xB, 2, 1); nan(1,8,n_samples)], 64, n_samples);
     xA = xA - mean(xA,1);
-    
+    xA = reshape(xA, 8, 8, n_samples);
+    xA = reshape([nan(1,8,n_samples); diff(xA, 2, 1); nan(1,8,n_samples)], 64, n_samples);
+    excvec = union(1:8:57, 8:8:64);
+    in_A(excvec) = [];
+    in_B(excvec) = [];
+
     t = 0:(1/fs):((iEnd-1)/fs);
     clear x;
+    xA = xA(in_A,:);
+    xB = xB(in_B-64,:);
     Y = [xA; xB];
     
     %% Use thresholding on Y
@@ -106,12 +116,12 @@ for iB = 1:numel(BLOCK)
         pp{ii} = csaps(ts{ii}, dts, SMOOTHING); % Setting SMOOTHING lower makes the rate traces smoother.
         Yp(:, ii) = max(ppval(pp{ii}, tp), 0);
     end
-
-    nbuf = round(0.05 * N_SAMPLES_PP);
-    vec_keep = nbuf:(N_SAMPLES_PP - nbuf + 1);
-    
-    tp = tp(vec_keep);
-    Yp = Yp(vec_keep,:);
+% 
+%     nbuf = round(0.05 * N_SAMPLES_PP);
+%     vec_keep = nbuf:(N_SAMPLES_PP - nbuf + 1);
+%     
+%     tp = tp(vec_keep);
+%     Yp = Yp(vec_keep,:);
 
     iExc = isoutlier(rms(Yp,1));
     in_both = [in_A, in_B];
@@ -147,7 +157,8 @@ for iB = 1:numel(BLOCK)
     E = Y(~iExc, vec_keep);
     E = E./max(abs(E), [], 2) + in_both';
     plot(ax, tp, E);
-    title(ax, 'HD-EMG', 'FontName', 'Tahoma', 'Color', 'k');
+    title(ax, strrep(block, '_', '\_'), 'FontName', 'Tahoma', 'Color', 'k');
+    subtitle(ax, 'HD-EMG', 'FontName', 'Tahoma', 'Color', [0.6 0.6 0.6]);
     ylabel(ax, 'Channel', 'FontName','Tahoma','Color','k');
     xlabel(ax, 'Time (s)', 'FontName','Tahoma','Color','k');
     
